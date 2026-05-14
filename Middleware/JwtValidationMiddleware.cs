@@ -1,14 +1,37 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.Functions.Worker.Middleware;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 
 namespace EaglesJungscharen.Azure.AppPortal.Middleware;
 
 public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
 {
+    private readonly ConfigurationManager<OpenIdConnectConfiguration> _oidcConfigManager;
+    private readonly ILogger<JwtValidationMiddleware> _logger;
+
+    public JwtValidationMiddleware(IConfiguration configuration, ILogger<JwtValidationMiddleware> logger)
+    {
+        var authority = configuration["OIDC_AUTHORITY"]
+            ?? throw new InvalidOperationException("Konfigurationsschlüssel 'OIDC_AUTHORITY' fehlt.");
+
+        // OIDC Discovery-Dokument laden — Signing Keys werden automatisch gecacht und periodisch erneuert
+        _oidcConfigManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+            $"{authority.TrimEnd('/')}/.well-known/openid-configuration",
+            new OpenIdConnectConfigurationRetriever());
+
+        _logger = logger;
+    }
+
     public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
     {
         // HTTP-Request aus dem FunctionContext lesen
@@ -43,28 +66,43 @@ public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        // Token-Validierung über die ASP.NET Core Authentifizierungs-Pipeline
-        // Die eigentliche Validierung (Signatur, Ablaufzeit, Issuer) erfolgt über
-        // AddAuthentication().AddJwtBearer() in Program.cs — der HttpContext wird
-        // dort via IHttpContextAccessor eingebunden.
-        // Hier wird nur geprüft, ob der ClaimsPrincipal nach der Middleware-Pipeline gesetzt ist.
-        // Für die tiefgreifende Validierung wird der ASP.NET Core-Middleware-Stack genutzt,
-        // der via ConfigureFunctionsWebApplication() integriert ist.
+        // OIDC-Konfiguration laden (Signing Keys werden gecacht und automatisch erneuert)
+        var oidcConfig = await _oidcConfigManager.GetConfigurationAsync(CancellationToken.None);
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = oidcConfig.Issuer,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = oidcConfig.SigningKeys,
+        };
+
+        // Token direkt validieren — kein Umweg über die ASP.NET Core Auth-Pipeline
+        var handler = new JsonWebTokenHandler();
+        var result = await handler.ValidateTokenAsync(token, validationParameters);
+
+        if (!result.IsValid)
+        {
+            _logger.LogDebug("Token-Validierung fehlgeschlagen: {Reason}", result.Exception?.Message);
+            await WriteUnauthorizedAsync(context, requestData, "Token ungültig oder abgelaufen.");
+            return;
+        }
+
+        // Validierten ClaimsPrincipal auf den HttpContext setzen
+        var httpContext = context.GetHttpContext();
+        if (httpContext is not null)
+        {
+            httpContext.User = new ClaimsPrincipal(result.ClaimsIdentity);
+        }
 
         await next(context);
-
-        // Nach der Ausführung: falls die ASP.NET Core Auth-Pipeline den Request als
-        // nicht authentifiziert markiert hat, wird dies hier erkannt.
-        var httpContext = context.GetHttpContext();
-        if (httpContext is not null && !httpContext.User.Identity?.IsAuthenticated == true)
-        {
-            await WriteUnauthorizedAsync(context, requestData, "Token ungültig oder abgelaufen.");
-        }
     }
 
     private static async Task WriteUnauthorizedAsync(
         FunctionContext context,
-        HttpRequestData requestData,
+        Microsoft.Azure.Functions.Worker.Http.HttpRequestData requestData,
         string message)
     {
         var response = requestData.CreateResponse(HttpStatusCode.Unauthorized);

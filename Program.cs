@@ -1,10 +1,10 @@
 using EaglesJungscharen.Azure.AppPortal.Middleware;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Logging;
+using Microsoft.Kiota.Abstractions.Authentication;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -17,29 +17,13 @@ builder.Services
 // In-Memory-Cache für MeDto und andere kurzlebige Daten
 builder.Services.AddMemoryCache();
 
-// JWT Bearer Authentifizierung via OIDC Authority (Churchtool IDP)
-var oidcAuthority = builder.Configuration["OIDC_AUTHORITY"]
-    ?? throw new InvalidOperationException("Konfigurationsschlüssel 'OIDC_AUTHORITY' fehlt.");
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = oidcAuthority;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = false,
-            ValidateIssuer = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-        };
-    });
-
-builder.Services.AddAuthorization();
+// IHttpClientFactory immer registrieren (Named Client "ChurchtoolIdp" wird bedingt hinzugefügt)
+builder.Services.AddHttpClient();
 
 // HTTP-Client für das Churchtool IDP Backend
 var idpBaseUrl = builder.Configuration["CHURCHTOOL_IDP_BASE_URL"];
 var idpFunctionKey = builder.Configuration["CHURCHTOOL_IDP_FUNCTION_KEY"];
+var churchtoolUserInfoUrl = builder.Configuration["CHURCHTOOL_USERINFO_URL"];
 
 if (!string.IsNullOrWhiteSpace(idpBaseUrl))
 {
@@ -54,6 +38,20 @@ if (!string.IsNullOrWhiteSpace(idpBaseUrl))
 }
 
 // JWT-Validierungs-Middleware in der Functions-Worker-Pipeline registrieren
+// Token-Validierung erfolgt direkt via JsonWebTokenHandler + OIDC Discovery
 builder.UseMiddleware<JwtValidationMiddleware>();
+builder.UseMiddleware<ChurchToolReferenceMiddleware>();
+builder.Logging.AddFilter("Microsoft.IdentityModel", LogLevel.Debug);
+
+builder.Services.AddScoped<IChurchToolReferenceContext, FunctionChurchToolReferenceContext>();
+builder.Services.AddScoped<IUserTokenProvider, AzureTableUserTokenProvider>();
+builder.Services.AddScoped<IAuthenticationProvider, ChurchToolsUserAuthenticationProvider>();
+builder.Services.AddScoped<ChurchToolsClientFactory>();
+
+builder.Services.AddHttpClient<ChurchToolsClientFactory>(client =>
+{
+    client.BaseAddress = new Uri($"{churchtoolUserInfoUrl}/api");
+});
+
 
 builder.Build().Run();

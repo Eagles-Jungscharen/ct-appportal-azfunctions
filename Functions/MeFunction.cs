@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using EaglesJungscharen.Azure.AppPortal.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -13,16 +14,16 @@ public class MeFunction
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     private readonly IMemoryCache _cache;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ChurchToolsClientFactory _clientFactory;
     private readonly ILogger<MeFunction> _logger;
 
     public MeFunction(
         IMemoryCache cache,
-        IHttpClientFactory httpClientFactory,
+        ChurchToolsClientFactory clientFactory,
         ILogger<MeFunction> logger)
     {
         _cache = cache;
-        _httpClientFactory = httpClientFactory;
+        _clientFactory = clientFactory;
         _logger = logger;
     }
 
@@ -64,18 +65,23 @@ public class MeFunction
     private async Task<MeDto> BuildMeDtoAsync(ClaimsPrincipal user, string userId)
     {
         // Anzeigename aus dem name-Claim lesen
-        var displayName = user.FindFirstValue("name") ?? userId;
-
+        var firstName = user.FindFirstValue("firstname") ?? userId;
+        var lastName = user.FindFirstValue("lastname") ?? "";
+        var displayName = $"{firstName} {lastName}".Trim();
         // TODO: CHURCHTOOL_USERINFO_URL konfigurieren
         // Sobald der Endpoint bekannt ist, hier den HTTP-Call implementieren:
         //
-        //   var client = _httpClientFactory.CreateClient("ChurchtoolIdp");
+        //   var client = _clientFactory.CreateClient("ChurchtoolIdp");
         //   var response = await client.GetAsync($"CHURCHTOOL_USERINFO_URL/{userId}");
         //   var userInfo = await response.Content.ReadFromJsonAsync<ChurchtoolUserInfoDto>();
         //   isAdmin = userInfo?.IsAdmin ?? false;
         //   groups = userInfo?.Groups ?? [];
         //
         // Vorerst Platzhalterwerte verwenden:
+        var ctClient = _clientFactory.Create();
+        var whoamiResponse = await ctClient.Whoami.GetAsWhoamiGetResponseAsync();
+        var whoami = whoamiResponse?.Data;
+        _logger.LogInformation("CHURCHTOOL WhoAmI: UserId={User Id}, DisplayName={DisplayName}", whoami?.Id, whoami != null ? whoami.FirstName + " " + whoami.LastName : "N/A");
         var isAdmin = false;
         var groups = new List<string>();
 
