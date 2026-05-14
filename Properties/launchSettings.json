@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "ct_appportal_azfunctions": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7001",
+      "launchBrowser": false
+    }
+  }
+}
