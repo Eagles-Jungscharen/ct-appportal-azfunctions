@@ -2,27 +2,29 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
-using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Models;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
-namespace EaglesJungscharen.Azure.AppPortal.Middleware;
+
+namespace EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 
 public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
 {
     private readonly ConfigurationManager<OpenIdConnectConfiguration> _oidcConfigManager;
     private readonly ILogger<JwtValidationMiddleware> _logger;
 
-    public JwtValidationMiddleware(IConfiguration configuration, ILogger<JwtValidationMiddleware> logger)
+    public JwtValidationMiddleware(IOptions<ChurchToolIDPConfig> options, ILogger<JwtValidationMiddleware> logger)
     {
-        var authority = configuration["OIDC_AUTHORITY"]
-            ?? throw new InvalidOperationException("Konfigurationsschlüssel 'OIDC_AUTHORITY' fehlt.");
+        var authority = options.Value.OidcAuthorityUrl;
 
         // OIDC Discovery-Dokument laden — Signing Keys werden automatisch gecacht und periodisch erneuert
         _oidcConfigManager = new ConfigurationManager<OpenIdConnectConfiguration>(

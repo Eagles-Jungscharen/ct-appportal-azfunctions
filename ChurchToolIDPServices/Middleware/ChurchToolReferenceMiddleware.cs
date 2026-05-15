@@ -1,9 +1,9 @@
+using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Middleware;
-using Microsoft.Azure.Functions.Worker.Http;
 using System.Security.Claims;
 
-namespace EaglesJungscharen.Azure.AppPortal.Middleware;
+namespace EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 
 public class ChurchToolReferenceMiddleware : IFunctionsWorkerMiddleware
 {

@@ -1,4 +1,4 @@
-namespace EaglesJungscharen.Azure.AppPortal.Middleware;
+namespace EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Models;
 public interface IChurchToolReferenceContext
 {
     string ChurchToolIDPReferenceId { get; }

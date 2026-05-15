@@ -1,3 +1,5 @@
+using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
+using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Middleware;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
@@ -23,7 +25,6 @@ builder.Services.AddHttpClient();
 // HTTP-Client für das Churchtool IDP Backend
 var idpBaseUrl = builder.Configuration["CHURCHTOOL_IDP_BASE_URL"];
 var idpFunctionKey = builder.Configuration["CHURCHTOOL_IDP_FUNCTION_KEY"];
-var churchtoolUserInfoUrl = builder.Configuration["CHURCHTOOL_USERINFO_URL"];
 
 if (!string.IsNullOrWhiteSpace(idpBaseUrl))
 {
@@ -39,19 +40,13 @@ if (!string.IsNullOrWhiteSpace(idpBaseUrl))
 
 // JWT-Validierungs-Middleware in der Functions-Worker-Pipeline registrieren
 // Token-Validierung erfolgt direkt via JsonWebTokenHandler + OIDC Discovery
+builder.Services.AddChurchToolIDPServices(
+    churchToolUrl: builder.Configuration["CHURCHTOOL_URL"] ?? throw new InvalidOperationException("CHURCHTOOL_URL is not configured."),
+    oidcAuthorityUrl: builder.Configuration["OIDC_AUTHORITY_URL"] ?? throw new InvalidOperationException("OIDC_AUTHORITY_URL is not configured."),
+    churchToolIDPStorageConnectionString: builder.Configuration["CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING"] ?? throw new InvalidOperationException("CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING is not configured.")
+);
 builder.UseMiddleware<JwtValidationMiddleware>();
 builder.UseMiddleware<ChurchToolReferenceMiddleware>();
-builder.Logging.AddFilter("Microsoft.IdentityModel", LogLevel.Debug);
-
-builder.Services.AddScoped<IChurchToolReferenceContext, FunctionChurchToolReferenceContext>();
-builder.Services.AddScoped<IUserTokenProvider, AzureTableUserTokenProvider>();
-builder.Services.AddScoped<IAuthenticationProvider, ChurchToolsUserAuthenticationProvider>();
-builder.Services.AddScoped<ChurchToolsClientFactory>();
-
-builder.Services.AddHttpClient<ChurchToolsClientFactory>(client =>
-{
-    client.BaseAddress = new Uri($"{churchtoolUserInfoUrl}/api");
-});
 
 
 builder.Build().Run();
