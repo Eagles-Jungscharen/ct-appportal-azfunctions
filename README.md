@@ -40,11 +40,27 @@ Das Backend läuft als isolierter .NET 10 Azure Functions Worker und ist das ein
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
-    "OIDC_AUTHORITY": "",
-    "OIDC_AUDIENCE": ""
+    "CHURCHTOOL_URL": "",
+    "OIDC_AUTHORITY_URL": "",
+    "CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING": "",
+    "CHURCHTOOL_IDP_BASE_URL": "",
+    "CHURCHTOOL_IDP_FUNCTION_KEY": "",
+    "CHURCHTOOL_ADMIN_GROUP_ID": ""
   }
 }
 ```
+
+| Variable | Pflicht | Beschreibung |
+|---|---|---|
+| `AzureWebJobsStorage` | ✓ | Azure Storage Connection String. Lokal: `UseDevelopmentStorage=true` (Azurite). |
+| `FUNCTIONS_WORKER_RUNTIME` | ✓ | Muss `dotnet-isolated` sein. |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | — | Application Insights Connection String für Telemetrie. Leer lassen für lokale Entwicklung. |
+| `CHURCHTOOL_URL` | ✓ | Basis-URL der Churchtool-Instanz (z.B. `https://myorg.church.tools`). Wird für API-Calls an Churchtool verwendet. |
+| `OIDC_AUTHORITY_URL` | ✓ | OIDC Authority URL des Churchtool IDP. Wird für die JWT-Validierung per OIDC-Discovery verwendet. |
+| `CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING` | ✓ | Azure Storage Connection String für die Login-Token-Tabelle des Churchtool IDP. Kann identisch mit `AzureWebJobsStorage` sein. |
+| `CHURCHTOOL_IDP_BASE_URL` | ✓ | Basis-URL des Churchtool IDP Azure Functions Backends. Wird für die OAuth2-Client-Registrierung verwendet. |
+| `CHURCHTOOL_IDP_FUNCTION_KEY` | ✓ | `x-functions-key` Header-Wert für Calls an das Churchtool IDP Backend. |
+| `CHURCHTOOL_ADMIN_GROUP_ID` | ✓ | `DomainIdentifier` der Churchtool-Gruppe, deren Mitglieder als Admins behandelt werden. |
 
 ### Starten
 
@@ -109,28 +125,36 @@ ct-appportal-azfunctions/
 
 ### Hohe Priorität — Grundfunktionalität
 
-| # | Thema | Beschreibung |
-|---|---|---|
-| 1 | **Alle Endpoints fehlen** | `GetApplications.cs` ist ein Placeholder (`"Welcome to Azure Functions!"`). Alle 8 API-Endpunkte müssen neu implementiert werden. |
-| 2 | **Keine Authentifizierung** | Bearer-Token-Validierung fehlt vollständig. `AuthorizationLevel` ist aktuell `Anonymous`. Das Token muss gegen den Churchtool IDP (OIDC/JWT) validiert werden. |
-| 3 | **Keine Autorisierung** | Admin-Checks (auf Basis von Gruppen/Rollen aus dem Token) fehlen. |
-| 4 | **Kein Data Access Layer** | Kein Datenbank-Anschluss (kein EF Core, kein Cosmos DB, keine Datenmodelle). Unklar, ob SQL, CosmosDB oder ein anderer Speicher verwendet wird. |
+| # | Thema | Status | Beschreibung |
+|---|---|---|---|
+| 1 | **7 von 8 Endpoints fehlen** | ⏳ Offen | Nur `GET /api/me` ist implementiert. `AppsFunction` und `AppManagementFunction` fehlen vollständig. |
+| 2 | **Placeholder `GetApplications.cs` löschen** | ⏳ Offen | Die Datei `GetApplications.cs` im Root ist totes Scaffold-Code und gibt `"Welcome to Azure Functions!"` zurück. Kann gelöscht werden. |
+| 3 | **Admin-Guard für `/api/appmanagement`** | ⏳ Offen | `isAdmin` wird in `MeService` korrekt berechnet (via `CHURCHTOOL_ADMIN_GROUP_ID`). Die eigentliche Zugangsprüfung in den noch fehlenden `AppManagement`-Endpoints muss noch implementiert werden. |
+| 4 | **Table Storage für Apps/Assignments** | ⏳ Offen | `AppEntity` und `AppAssignmentEntity` sind definiert. `TypedAzureTableClient<AppEntity>` und `TypedAzureTableClient<AppAssignmentEntity>` sind noch nicht in `Program.cs` registriert. |
 
 ### Mittlere Priorität
 
-| # | Thema | Beschreibung |
-|---|---|---|
-| 5 | **Keine Service-Schicht** | Business Logic ist nicht getrennt — alles würde direkt in den Function-Klassen landen. |
-| 6 | **Kein CORS** | CORS für `http://localhost:5173` (Dev) und die Produktions-URL ist nicht konfiguriert. |
-| 7 | **Keine zentrale Fehlerbehandlung** | Unkontrollierte Exceptions würden als `500 Internal Server Error` ohne strukturierte Fehlermeldung ankommen. |
-| 8 | **Keine C#-Datenmodelle** | DTOs existieren nur im Frontend (TypeScript). C#-Pendants fehlen. |
-| 9 | **Integration Churchtool IDP** | `POST /api/appmanagement/clients` muss OAuth2-Clients beim Churchtool IDP registrieren — API-Kontrakt des IDP ist zu klären. |
+| # | Thema | Status | Beschreibung |
+|---|---|---|---|
+| 5 | **Service-Schicht vervollständigen** | ⏳ Offen | `IMeService`/`MeService` existieren. `IAppService`, `IAssignmentService` und `IChurchtoolIdpService` fehlen noch. |
+| 6 | **CORS für Produktion** | ⏳ Offen | Lokal via `local.settings.json` konfiguriert (`http://localhost:5173`). Für Azure-Deployment fehlt eine `host.json`-CORS-Konfiguration mit der Produktions-URL. |
+| 7 | **Zentrale Fehlerbehandlung** | ⏳ Offen | Keine Exception-Middleware. Unbehandelte Fehler landen als `500` ohne strukturiertes `ErrorRecord`-Format. |
+| 8 | **OAuth2-Client-Registrierung (IDP)** | ⏳ Offen | `POST /api/appmanagement/clients` muss OAuth2-Clients an das Churchtool IDP Backend weiterleiten. `ClientRegistrationDto`/`ClientRegistrationResultDto` sind definiert, der Endpoint fehlt noch. |
 
 ### Niedrige Priorität
 
+| # | Thema | Status | Beschreibung |
+|---|---|---|---|
+| 9 | **Keine Tests** | ⏳ Offen | Weder Unit- noch Integrationstests vorhanden. |
+| 10 | **Kein OpenAPI/Swagger** | ⏳ Offen | Keine API-Dokumentation generiert. |
+| 11 | **Deployment-Konfiguration** | ⏳ Offen | Kein `azure.yaml`, kein Bicep/Terraform, kein GitHub Actions Workflow. |
+
+### Erledigt
+
 | # | Thema | Beschreibung |
 |---|---|---|
-| 10 | **Keine Tests** | Weder Unit- noch Integrationstests vorhanden. |
-| 11 | **Kein OpenAPI/Swagger** | Keine API-Dokumentation generiert. |
-| 12 | **Deployment-Konfiguration** | Kein `azure.yaml`, kein Bicep/Terraform, kein GitHub Actions Workflow. |
-| 13 | **`local.settings.json` unvollständig** | Storage Connection String und IDP-Konfiguration fehlen. |
+| ✅ | **Bearer Token Validierung** | `JwtValidationMiddleware` validiert JWT via OIDC-Discovery gegen `OIDC_AUTHORITY_URL`. |
+| ✅ | **Admin-Erkennung** | `MeService` berechnet `isAdmin` via Gruppen-Abgleich mit `CHURCHTOOL_ADMIN_GROUP_ID`. |
+| ✅ | **C#-Datenmodelle** | Alle DTOs, Entities und Request-Klassen sind definiert. |
+| ✅ | **`GET /api/me`** | Implementiert mit Caching (5 min TTL), liefert `UserId`, `DisplayName`, `IsAdmin` und `Groups` (`GroupDto` mit `Id`/`Title`). |
+| ✅ | **ChurchTools API-Integration** | `ChurchToolsClientFactory` mit Kiota-Client, Token-Provider via Azure Table Storage und `st_ref`-Middleware sind vollständig implementiert. |
