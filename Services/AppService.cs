@@ -1,5 +1,6 @@
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using EaglesJungscharen.Azure.AppPortal.Models.Entities;
+using EaglesJungscharen.Azure.AppPortal.Models.Requests;
 using GuedesPlace.AzureTools.Tables;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,15 +38,101 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
                 // App sichtbar wenn mind. eine Gruppe des Benutzers übereinstimmt
                 return appGroups.Overlaps(userGroups);
             })
-            .Select(app => new AppDto(
-                app.Id,
-                app.Name,
-                app.Description,
-                app.Url,
-                app.IconUrl,
-                app.RedirectUris,
-                []
-            ))
+            .Select(app => ToDto(app))
             .ToList();
     }
+
+    public async Task<List<AppDto>> GetAllAppsAsync()
+    {
+        var results = await _appTable.GetAllAsync();
+        return results.Select(r => ToDto(r.Entity)).ToList();
+    }
+
+    public async Task<AppDto?> GetAppByIdAsync(string id)
+    {
+        var result = await _appTable.GetByIdAsync(id);
+        return result is null ? null : ToDto(result.Entity);
+    }
+
+    public async Task<AppDto> CreateAppAsync(CreateAppRequest request)
+    {
+        var entity = new AppEntity
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = request.Name,
+            Description = request.Description,
+            Url = request.Url,
+            IconUrl = request.IconUrl,
+            RedirectUris = request.RedirectUris,
+            Roles = request.Roles
+        };
+        await _appTable.InsertOrReplaceAsync(rowKey: entity.Id, partitionKey: "App", entity);
+        return ToDto(entity);
+    }
+
+    public async Task<AppDto?> UpdateAppAsync(string id, UpdateAppRequest request)
+    {
+        var existing = await _appTable.GetByIdAsync(id);
+        if (existing is null)
+            return null;
+
+        var entity = existing.Entity;
+        entity.Name = request.Name;
+        entity.Description = request.Description;
+        entity.Url = request.Url;
+        entity.IconUrl = request.IconUrl;
+        entity.RedirectUris = request.RedirectUris;
+        entity.Roles = request.Roles;
+
+        await _appTable.InsertOrReplaceAsync(rowKey: entity.Id, partitionKey: "App", entity);
+        return ToDto(entity);
+    }
+
+    public async Task<bool> DeleteAppAsync(string id)
+    {
+        var existing = await _appTable.GetByIdAsync(id);
+        if (existing is null)
+            return false;
+
+        // App löschen
+        await _appTable.DeleteEntityAsync(rowKey: id, partitionKey: "App");
+
+        // Alle Zuweisungen dieser App löschen
+        var assignments = (await _assignmentTable.GetAllAsync())
+            .Select(r => r.Entity)
+            .Where(a => a.AppId == id)
+            .ToList();
+
+        foreach (var assignment in assignments)
+            await _assignmentTable.DeleteEntityAsync(rowKey: assignment.Id, partitionKey: "Assignment");
+
+        return true;
+    }
+
+    public async Task AssignGroupsAsync(string id, List<string> groupIds)
+    {
+        // Bestehende Zuweisungen für diese App löschen
+        var existing = (await _assignmentTable.GetAllAsync())
+            .Select(r => r.Entity)
+            .Where(a => a.AppId == id)
+            .ToList();
+
+        foreach (var assignment in existing)
+            await _assignmentTable.DeleteEntityAsync(rowKey: assignment.Id, partitionKey: "Assignment");
+
+        // Neue Zuweisungen erstellen
+        foreach (var groupId in groupIds)
+        {
+            var entity = new AppAssignmentEntity
+            {
+                Id = Guid.NewGuid().ToString(),
+                AppId = id,
+                GroupId = groupId
+            };
+            await _assignmentTable.InsertOrReplaceAsync(rowKey: entity.Id, partitionKey: "Assignment", entity);
+        }
+    }
+
+    private static AppDto ToDto(AppEntity app) =>
+        new(app.Id, app.Name, app.Description, app.Url, app.IconUrl, app.RedirectUris, app.Roles);
 }

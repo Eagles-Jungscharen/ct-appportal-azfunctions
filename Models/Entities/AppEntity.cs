@@ -1,3 +1,5 @@
+using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
+
 namespace EaglesJungscharen.Azure.AppPortal.Models.Entities;
 
 public class AppEntity
@@ -10,5 +12,5 @@ public class AppEntity
     // Wird automatisch als JSON-Array-String serialisiert
     public List<string> RedirectUris { get; set; } = [];
     // Wird automatisch als JSON-Array-String serialisiert
-    public List<string> RoleIds { get; set; } = [];
+    public List<RoleDto> Roles { get; set; } = [];
 }
