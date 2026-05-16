@@ -1,6 +1,7 @@
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Middleware;
+using EaglesJungscharen.Azure.AppPortal.Services;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,8 @@ builder.Services.AddChurchToolIDPServices(
     oidcAuthorityUrl: builder.Configuration["OIDC_AUTHORITY_URL"] ?? throw new InvalidOperationException("OIDC_AUTHORITY_URL is not configured."),
     churchToolIDPStorageConnectionString: builder.Configuration["CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING"] ?? throw new InvalidOperationException("CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING is not configured.")
 );
+builder.Services.AddScoped<IMeService, MeService>();
+
 builder.UseMiddleware<JwtValidationMiddleware>();
 builder.UseMiddleware<ChurchToolReferenceMiddleware>();
 

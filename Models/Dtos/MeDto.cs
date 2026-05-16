@@ -4,5 +4,5 @@ public record MeDto(
     string UserId,
     string DisplayName,
     bool IsAdmin,
-    List<string> Groups
+    List<GroupDto> Groups
 );

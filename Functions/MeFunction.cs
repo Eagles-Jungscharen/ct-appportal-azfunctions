@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using EaglesJungscharen.Azure.AppPortal.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
+using EaglesJungscharen.Azure.AppPortal.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -14,16 +14,16 @@ public class MeFunction
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
     private readonly IMemoryCache _cache;
-    private readonly ChurchToolsClientFactory _clientFactory;
+    private readonly IMeService _meService;
     private readonly ILogger<MeFunction> _logger;
 
     public MeFunction(
         IMemoryCache cache,
-        ChurchToolsClientFactory clientFactory,
+        IMeService meService,
         ILogger<MeFunction> logger)
     {
         _cache = cache;
-        _clientFactory = clientFactory;
+        _meService = meService;
         _logger = logger;
     }
 
@@ -53,40 +53,12 @@ public class MeFunction
         }
 
         // Benutzerinformationen laden und MeDto aufbauen
-        var meDto = await BuildMeDtoAsync(req.HttpContext.User, userId);
+        var meDto = await _meService.GetMeDtoAsync(req.HttpContext.User, userId);
 
         // Ergebnis in den Cache schreiben
         _cache.Set(cacheKey, meDto, CacheTtl);
         _logger.LogInformation("MeDto für Benutzer {UserId} in Cache gespeichert (TTL: {Ttl}).", userId, CacheTtl);
 
         return new OkObjectResult(meDto);
-    }
-
-    private async Task<MeDto> BuildMeDtoAsync(ClaimsPrincipal user, string userId)
-    {
-        // Anzeigename aus dem name-Claim lesen
-        var firstName = user.FindFirstValue("firstname") ?? userId;
-        var lastName = user.FindFirstValue("lastname") ?? "";
-        var displayName = $"{firstName} {lastName}".Trim();
-        // TODO: CHURCHTOOL_USERINFO_URL konfigurieren
-        // Sobald der Endpoint bekannt ist, hier den HTTP-Call implementieren:
-        //
-        //   var client = _clientFactory.CreateClient("ChurchtoolIdp");
-        //   var response = await client.GetAsync($"CHURCHTOOL_USERINFO_URL/{userId}");
-        //   var userInfo = await response.Content.ReadFromJsonAsync<ChurchtoolUserInfoDto>();
-        //   isAdmin = userInfo?.IsAdmin ?? false;
-        //   groups = userInfo?.Groups ?? [];
-        //
-        // Vorerst Platzhalterwerte verwenden:
-        var ctClient = _clientFactory.Create();
-        var whoamiResponse = await ctClient.Whoami.GetAsWhoamiGetResponseAsync();
-        var whoami = whoamiResponse?.Data;
-        _logger.LogInformation("CHURCHTOOL WhoAmI: UserId={User Id}, DisplayName={DisplayName}", whoami?.Id, whoami != null ? whoami.FirstName + " " + whoami.LastName : "N/A");
-        var isAdmin = false;
-        var groups = new List<string>();
-
-        await Task.CompletedTask; // Platzhalter — entfernen sobald echter HTTP-Call implementiert ist
-
-        return new MeDto(userId, displayName, isAdmin, groups);
     }
 }
