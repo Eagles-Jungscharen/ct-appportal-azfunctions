@@ -7,5 +7,5 @@ public record AppDto(
     string Url,
     string? IconUrl,
     List<string> RedirectUris,
-    List<string> RoleIds
+    List<RoleDto> Roles
 );

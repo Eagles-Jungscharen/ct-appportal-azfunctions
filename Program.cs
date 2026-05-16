@@ -1,7 +1,9 @@
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models;
+using EaglesJungscharen.Azure.AppPortal.Models.Entities;
 using EaglesJungscharen.Azure.AppPortal.Services;
+using GuedesPlace.AzureTools.Tables;
 using GuedesPlace.AzureTools.Configuration.Extensions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
@@ -59,6 +61,14 @@ builder.Services.AddChurchToolIDPServices(
     churchToolIDPStorageConnectionString: builder.Configuration["CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING"] ?? throw new InvalidOperationException("CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING is not configured.")
 );
 builder.Services.AddScoped<IMeService, MeService>();
+
+// Table Storage für Portal-Tabellen (Apps, AppAssignments)
+var portalTableService = new ExtendedAzureTableClientService(
+    builder.Configuration["AzureWebJobsStorage"] ?? throw new InvalidOperationException("AzureWebJobsStorage ist nicht konfiguriert."));
+portalTableService.CreateAndRegisterTableClient<AppEntity>("Apps");
+portalTableService.CreateAndRegisterTableClient<AppAssignmentEntity>("AppAssignments");
+builder.Services.AddKeyedSingleton<ExtendedAzureTableClientService>("PortalStorage", portalTableService);
+builder.Services.AddScoped<IAppService, AppService>();
 
 builder.UseMiddleware<JwtValidationMiddleware>();
 builder.UseMiddleware<ChurchToolReferenceMiddleware>();
