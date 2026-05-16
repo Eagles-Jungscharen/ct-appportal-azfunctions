@@ -1,17 +1,29 @@
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
-using EaglesJungscharen.Azure.AppPortal.Middleware;
+using EaglesJungscharen.Azure.AppPortal.Models;
 using EaglesJungscharen.Azure.AppPortal.Services;
+using GuedesPlace.AzureTools.Configuration.Extensions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Kiota.Abstractions.Authentication;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
+
+builder.Configuration.CheckConfigurationValuesAvailable(new[]
+{
+    "CHURCHTOOL_IDP_BASE_URL",
+    "CHURCHTOOL_IDP_FUNCTION_KEY",
+    "CHURCHTOOL_URL",
+    "OIDC_AUTHORITY_URL",
+    "CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING",
+    "CHURCHTOOL_ADMIN_GROUP_ID"
+});
+builder.Services.Configure<PortalConfiguration>(config=>{
+    config.ChurchToolAdminGroupId = builder.Configuration["CHURCHTOOL_ADMIN_GROUP_ID"]!;
+});
 
 builder.Services
     .AddApplicationInsightsTelemetryWorkerService()

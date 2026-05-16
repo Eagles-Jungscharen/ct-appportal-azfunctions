@@ -1,20 +1,17 @@
 using System.Security.Claims;
 using EaglesJungscharen.Azure.AppPortal.Middleware;
+using EaglesJungscharen.Azure.AppPortal.Models;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace EaglesJungscharen.Azure.AppPortal.Services;
 
-public class MeService : IMeService
-{
-    private readonly ChurchToolsClientFactory _clientFactory;
-    private readonly ILogger<MeService> _logger;
-
-    public MeService(ChurchToolsClientFactory clientFactory, ILogger<MeService> logger)
-    {
-        _clientFactory = clientFactory;
-        _logger = logger;
-    }
+public class MeService(ChurchToolsClientFactory clientFactory, ILogger<MeService> logger, IOptions<PortalConfiguration> options) : IMeService
+{   
+    private readonly ChurchToolsClientFactory _clientFactory = clientFactory;
+    private readonly ILogger<MeService> _logger = logger;
+    private readonly PortalConfiguration _portalConfiguration = options.Value;
 
     public async Task<MeDto> GetMeDtoAsync(ClaimsPrincipal user, string userId)
     {
@@ -43,7 +40,7 @@ public class MeService : IMeService
             .Select(g => new GroupDto(g.Group!.DomainIdentifier!, g.Group.Title ?? string.Empty))
             .ToList() ?? [];
         groups.ForEach(g => _logger.LogInformation("CHURCHTOOL Group: Id={GroupId}, Name={GroupName}", g.Id, g.Title));
-        var isAdmin = false;
+        var isAdmin = groups.Any(g => g.Id == _portalConfiguration.ChurchToolAdminGroupId);
 
         return new MeDto(userId, displayName, isAdmin, groups);
     }
