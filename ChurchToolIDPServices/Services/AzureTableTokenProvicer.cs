@@ -21,6 +21,6 @@ public class AzureTableUserTokenProvider(IChurchToolReferenceContext churchToolR
         _logger.LogInformation("Fetching login token for ChurchToolIDPReferenceId: {ReferenceId}", churchToolIDPReferenceId);
 
         var entity = await _tableClient.GetByIdAsync(churchToolIDPReferenceId, "USER_TOKEN");
-        return entity.Entity.LoginToken;
+        return entity?.Entity.LoginToken ?? "";
     }
 }
