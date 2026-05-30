@@ -84,6 +84,13 @@ public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
         // Token direkt validieren — kein Umweg über die ASP.NET Core Auth-Pipeline
         var handler = new JsonWebTokenHandler();
         var result = await handler.ValidateTokenAsync(token, validationParameters);
+        if (!result.IsValid)
+        {
+            _oidcConfigManager.RequestRefresh(); // Bei Validierungsfehlern könnte es an veralteten Keys liegen — OIDC-Konfiguration aktualisieren
+            oidcConfig = await _oidcConfigManager.GetConfigurationAsync(CancellationToken.None);
+            _logger.LogDebug("Token-Validierung fehlgeschlagen, versuche mit aktualisierten OIDC-Konfiguration. Fehler: {Reason}", result.Exception?.Message);
+            result = await handler.ValidateTokenAsync(token, validationParameters);    
+        }
 
         if (!result.IsValid)
         {

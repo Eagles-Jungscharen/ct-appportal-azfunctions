@@ -13,15 +13,18 @@ public class AppManagementFunction
 {
     private readonly IMeService _meService;
     private readonly IAppService _appService;
+    private readonly IChurchtoolIdpService _churchtoolIdpService;
     private readonly ILogger<AppManagementFunction> _logger;
 
     public AppManagementFunction(
         IMeService meService,
         IAppService appService,
+        IChurchtoolIdpService churchtoolIdpService,
         ILogger<AppManagementFunction> logger)
     {
         _meService = meService;
         _appService = appService;
+        _churchtoolIdpService = churchtoolIdpService;
         _logger = logger;
     }
 
@@ -96,6 +99,63 @@ public class AppManagementFunction
             await _appService.AssignGroupsAsync(id, request.GroupIds);
             _logger.LogInformation("{Count} Gruppe(n) für App {AppId} gesetzt.", request.GroupIds.Count, id);
             return new OkResult();
+        });
+
+    [Function("AppManagement_GetClients")]
+    public async Task<IActionResult> GetClients([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "appmanagement/clients")] HttpRequest req) =>
+        await ExecuteAsAdminAsync(req, async (_, _) =>
+        {
+            var clients = await _churchtoolIdpService.GetClientsAsync();
+            _logger.LogInformation("{Count} Client(s) für Admin geladen.", clients.Count());
+            return new OkObjectResult(clients);
+        });
+
+    [Function("AppManagement_CreateClient")]
+    public async Task<IActionResult> CreateClient([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "appmanagement/clients")] HttpRequest req) =>
+        await ExecuteAsAdminAsync(req, async (req, meDto) =>
+        {
+            var request = await req.ReadFromJsonAsync<CreateClientRequest>();
+            if (request is null || string.IsNullOrWhiteSpace(request.Name))
+                return new ObjectResult(new ErrorRecord("Ungültige Anfrage. Name ist ein Pflichtfeld.", 1300))
+                { StatusCode = StatusCodes.Status400BadRequest };
+            if (request.RedirectUris is null || request.RedirectUris.Count == 0)
+                return new ObjectResult(new ErrorRecord("Mindestens eine Redirect-URI ist erforderlich.", 1301))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            var client = await _churchtoolIdpService.CreateClientAsync(request.Name, meDto.UserId, request.RedirectUris);
+            _logger.LogInformation("Client '{Name}' erstellt: {ClientId}", client.Name, client.ClientId);
+            return new ObjectResult(client) { StatusCode = StatusCodes.Status201Created };
+        });
+
+    [Function("AppManagement_UpdateClient")]
+    public async Task<IActionResult> UpdateClient([HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "appmanagement/clients/{clientId}")] HttpRequest req, string clientId) =>
+        await ExecuteAsAdminAsync(req, async (req, _) =>
+        {
+            var request = await req.ReadFromJsonAsync<UpdateClientRequest>();
+            if (request is null || (request.Name is null && request.Owner is null && request.RedirectUris is null))
+                return new ObjectResult(new ErrorRecord("Mindestens ein Feld (Name, Owner oder RedirectUris) muss angegeben werden.", 1302))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            var client = await _churchtoolIdpService.UpdateClientAsync(clientId, request.Name, request.Owner, request.RedirectUris);
+            if (client is null)
+                return new ObjectResult(new ErrorRecord("Der Client wurde nicht gefunden.", 1303))
+                { StatusCode = StatusCodes.Status404NotFound };
+
+            _logger.LogInformation("Client {ClientId} aktualisiert.", clientId);
+            return new OkObjectResult(client);
+        });
+
+    [Function("AppManagement_DeleteClient")]
+    public async Task<IActionResult> DeleteClient([HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "appmanagement/clients/{clientId}")] HttpRequest req, string clientId) =>
+        await ExecuteAsAdminAsync(req, async (_, _) =>
+        {
+            var deleted = await _churchtoolIdpService.DeleteClientAsync(clientId);
+            if (!deleted)
+                return new ObjectResult(new ErrorRecord("Der Client wurde nicht gefunden.", 1303))
+                { StatusCode = StatusCodes.Status404NotFound };
+
+            _logger.LogInformation("Client {ClientId} gelöscht.", clientId);
+            return new NoContentResult();
         });
 
     // Auth-Guard: 401 wenn nicht authentifiziert, 403 wenn kein Admin, sonst Handler ausführen

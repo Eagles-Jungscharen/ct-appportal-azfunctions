@@ -61,6 +61,7 @@ builder.Services.AddChurchToolIDPServices(
     churchToolIDPStorageConnectionString: builder.Configuration["CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING"] ?? throw new InvalidOperationException("CHURCHTOOL_IDP_STORAGE_CONNECTION_STRING is not configured.")
 );
 builder.Services.AddScoped<IMeService, MeService>();
+builder.Services.AddScoped<IChurchtoolIdpService, ChurchtoolIdpService>();
 
 // Table Storage für Portal-Tabellen (Apps, AppAssignments)
 var portalTableService = new ExtendedAzureTableClientService(
