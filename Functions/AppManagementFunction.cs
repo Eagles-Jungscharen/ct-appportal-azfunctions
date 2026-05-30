@@ -14,17 +14,20 @@ public class AppManagementFunction
     private readonly IMeService _meService;
     private readonly IAppService _appService;
     private readonly IChurchtoolIdpService _churchtoolIdpService;
+    private readonly IIconService _iconService;
     private readonly ILogger<AppManagementFunction> _logger;
 
     public AppManagementFunction(
         IMeService meService,
         IAppService appService,
         IChurchtoolIdpService churchtoolIdpService,
+        IIconService iconService,
         ILogger<AppManagementFunction> logger)
     {
         _meService = meService;
         _appService = appService;
         _churchtoolIdpService = churchtoolIdpService;
+        _iconService = iconService;
         _logger = logger;
     }
 
@@ -78,6 +81,9 @@ public class AppManagementFunction
                 return new ObjectResult(new ErrorRecord("Die Applikation wurde nicht gefunden.", 1101))
                 { StatusCode = StatusCodes.Status404NotFound };
 
+            // Icon aus Blob Storage löschen (Fehler nicht propagieren)
+            try { await _iconService.DeleteIconAsync(id); } catch { }
+
             _logger.LogInformation("App {AppId} gelöscht.", id);
             return new NoContentResult();
         });
@@ -99,6 +105,48 @@ public class AppManagementFunction
             await _appService.AssignGroupsAsync(id, request.GroupIds);
             _logger.LogInformation("{Count} Gruppe(n) für App {AppId} gesetzt.", request.GroupIds.Count, id);
             return new OkResult();
+        });
+
+    [Function("AppManagement_UploadIcon")]
+    public async Task<IActionResult> UploadIcon(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "appmanagement/apps/{id}/icon")] HttpRequest req, string id) =>
+        await ExecuteAsAdminAsync(req, async (req, _) =>
+        {
+            // App-Existenz prüfen
+            var app = await _appService.GetAppByIdAsync(id);
+            if (app is null)
+                return new ObjectResult(new ErrorRecord("Die Applikation wurde nicht gefunden.", 1101))
+                { StatusCode = StatusCodes.Status404NotFound };
+
+            // Datei aus multipart/form-data lesen
+            if (!req.HasFormContentType)
+                return new ObjectResult(new ErrorRecord("Keine Datei hochgeladen.", 1150))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            var form = await req.ReadFormAsync();
+            if (form.Files.Count == 0)
+                return new ObjectResult(new ErrorRecord("Keine Datei hochgeladen.", 1150))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            var file = form.Files[0];
+
+            // Content-Type validieren
+            var allowedTypes = new HashSet<string> { "image/png", "image/jpeg", "image/svg+xml", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType))
+                return new ObjectResult(new ErrorRecord("Ungültiges Dateiformat. Erlaubt: PNG, JPEG, SVG, WebP.", 1151))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            // Grösse prüfen (max. 512 KB)
+            if (file.Length > 512 * 1024)
+                return new ObjectResult(new ErrorRecord("Die Datei ist zu gross. Maximale Grösse: 512 KB.", 1152))
+                { StatusCode = StatusCodes.Status400BadRequest };
+
+            using var stream = file.OpenReadStream();
+            await _iconService.UploadIconAsync(id, file.ContentType, stream);
+            await _appService.SetIconContentTypeAsync(id, file.ContentType);
+
+            _logger.LogInformation("Icon für App {AppId} hochgeladen.", id);
+            return new NoContentResult();
         });
 
     [Function("AppManagement_GetClients")]

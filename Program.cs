@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
 using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models;
@@ -70,6 +71,12 @@ portalTableService.CreateAndRegisterTableClient<AppEntity>("Apps");
 portalTableService.CreateAndRegisterTableClient<AppAssignmentEntity>("AppAssignments");
 builder.Services.AddKeyedSingleton<ExtendedAzureTableClientService>("PortalStorage", portalTableService);
 builder.Services.AddScoped<IAppService, AppService>();
+
+// Blob Storage für Icons (Container "app-icons" wird beim ersten Upload erstellt)
+var blobServiceClient = new BlobServiceClient(
+    builder.Configuration["AzureWebJobsStorage"] ?? throw new InvalidOperationException("AzureWebJobsStorage ist nicht konfiguriert."));
+builder.Services.AddSingleton(blobServiceClient);
+builder.Services.AddScoped<IIconService, IconService>();
 
 builder.UseMiddleware<JwtValidationMiddleware>();
 builder.UseMiddleware<ChurchToolReferenceMiddleware>();

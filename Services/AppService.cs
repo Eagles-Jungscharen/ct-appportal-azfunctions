@@ -64,7 +64,6 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
             Name = request.Name,
             Description = request.Description,
             Url = request.Url,
-            IconUrl = request.IconUrl,
             RedirectUris = request.RedirectUris,
             Roles = request.Roles
         };
@@ -82,7 +81,6 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
         entity.Name = request.Name;
         entity.Description = request.Description;
         entity.Url = request.Url;
-        entity.IconUrl = request.IconUrl;
         entity.RedirectUris = request.RedirectUris;
         entity.Roles = request.Roles;
 
@@ -135,6 +133,17 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
         }
     }
 
+    public async Task<bool> SetIconContentTypeAsync(string id, string contentType)
+    {
+        var existing = await _appTable.GetByIdAsync(id, AppPartitionKey);
+        if (existing is null)
+            return false;
+
+        existing.Entity.IconContentType = contentType;
+        await _appTable.InsertOrReplaceAsync(rowKey: id, partitionKey: AppPartitionKey, existing.Entity);
+        return true;
+    }
+
     private static AppDto ToDto(AppEntity app) =>
-        new(app.Id, app.Name, app.Description, app.Url, app.IconUrl, app.RedirectUris, app.Roles);
+        new(app.Id, app.Name, app.Description, app.Url, app.IconContentType != null, app.RedirectUris, app.Roles);
 }

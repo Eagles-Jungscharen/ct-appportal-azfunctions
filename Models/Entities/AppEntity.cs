@@ -8,7 +8,7 @@ public class AppEntity
     public required string Name { get; set; }
     public string? Description { get; set; }
     public required string Url { get; set; }
-    public string? IconUrl { get; set; }
+    public string? IconContentType { get; set; }
     // Wird automatisch als JSON-Array-String serialisiert
     public List<string> RedirectUris { get; set; } = [];
     // Wird automatisch als JSON-Array-String serialisiert

@@ -12,4 +12,5 @@ public interface IAppService
     Task<AppDto?> UpdateAppAsync(string id, UpdateAppRequest request);
     Task<bool> DeleteAppAsync(string id);
     Task AssignGroupsAsync(string id, List<string> groupIds);
+    Task<bool> SetIconContentTypeAsync(string id, string contentType);
 }

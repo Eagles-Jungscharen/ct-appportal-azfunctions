@@ -5,7 +5,7 @@ public record AppDto(
     string Name,
     string? Description,
     string Url,
-    string? IconUrl,
+    bool HasIcon,
     List<string> RedirectUris,
     List<RoleDto> Roles
 );
