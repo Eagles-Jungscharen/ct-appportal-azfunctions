@@ -68,26 +68,17 @@ public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
             return;
         }
 
-        // OIDC-Konfiguration laden (Signing Keys werden gecacht und automatisch erneuert)
-        var oidcConfig = await _oidcConfigManager.GetConfigurationAsync(CancellationToken.None);
-
-        var validationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = false,
-            ValidateIssuer = true,
-            ValidIssuer = oidcConfig.Issuer,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKeys = oidcConfig.SigningKeys,
-        };
+        // OIDC-Konfiguration laden und Validierungsparameter erstellen
+        var validationParameters = await BuildValidationParametersAsync();
 
         // Token direkt validieren — kein Umweg über die ASP.NET Core Auth-Pipeline
         var handler = new JsonWebTokenHandler();
         var result = await handler.ValidateTokenAsync(token, validationParameters);
+        _logger.LogInformation("Token-Validierung abgeschlossen. Ergebnis: {IsValid}.", result.IsValid);
         if (!result.IsValid)
         {
             _oidcConfigManager.RequestRefresh(); // Bei Validierungsfehlern könnte es an veralteten Keys liegen — OIDC-Konfiguration aktualisieren
-            oidcConfig = await _oidcConfigManager.GetConfigurationAsync(CancellationToken.None);
+            validationParameters = await BuildValidationParametersAsync();
             _logger.LogDebug("Token-Validierung fehlgeschlagen, versuche mit aktualisierten OIDC-Konfiguration. Fehler: {Reason}", result.Exception?.Message);
             result = await handler.ValidateTokenAsync(token, validationParameters);    
         }
@@ -107,6 +98,22 @@ public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
         }
 
         await next(context);
+    }
+
+    private async Task<TokenValidationParameters> BuildValidationParametersAsync()
+    {
+        // OIDC-Konfiguration laden (Signing Keys werden gecacht und automatisch erneuert)
+        var oidcConfig = await _oidcConfigManager.GetConfigurationAsync(CancellationToken.None);
+
+        return new TokenValidationParameters
+        {
+            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = oidcConfig.Issuer,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKeys = oidcConfig.SigningKeys,
+        };
     }
 
     private static async Task WriteUnauthorizedAsync(

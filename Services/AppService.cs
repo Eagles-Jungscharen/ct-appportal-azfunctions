@@ -107,6 +107,16 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
         return true;
     }
 
+    public async Task<List<string>> GetAssignmentsAsync(string appId)
+    {
+        var results = await _assignmentTable.GetAllAsync(AssignmentPartitionKey);
+        return results
+            .Select(r => r.Entity)
+            .Where(a => a.AppId == appId)
+            .Select(a => a.GroupId)
+            .ToList();
+    }
+
     public async Task AssignGroupsAsync(string id, List<string> groupIds)
     {
         // Bestehende Zuweisungen für diese App löschen

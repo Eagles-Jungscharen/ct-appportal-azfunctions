@@ -13,6 +13,7 @@ public class AppManagementFunction
 {
     private readonly IMeService _meService;
     private readonly IAppService _appService;
+    private readonly IGroupService _groupService;
     private readonly IChurchtoolIdpService _churchtoolIdpService;
     private readonly IIconService _iconService;
     private readonly ILogger<AppManagementFunction> _logger;
@@ -20,16 +21,41 @@ public class AppManagementFunction
     public AppManagementFunction(
         IMeService meService,
         IAppService appService,
+        IGroupService groupService,
         IChurchtoolIdpService churchtoolIdpService,
         IIconService iconService,
         ILogger<AppManagementFunction> logger)
     {
         _meService = meService;
         _appService = appService;
+        _groupService = groupService;
         _churchtoolIdpService = churchtoolIdpService;
         _iconService = iconService;
         _logger = logger;
     }
+
+    [Function("AppManagement_GetGroups")]
+    public async Task<IActionResult> GetGroups([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "appmanagement/groups")] HttpRequest req) =>
+        await ExecuteAsAdminAsync(req, async (_, _) =>
+        {
+            var groups = await _groupService.GetGroupsAsync();
+            _logger.LogInformation("{Count} Gruppe(n) für Admin geladen.", groups.Count);
+            return new OkObjectResult(groups);
+        });
+
+    [Function("AppManagement_GetAssignments")]
+    public async Task<IActionResult> GetAssignments([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "appmanagement/apps/{id}/assignments")] HttpRequest req, string id) =>
+        await ExecuteAsAdminAsync(req, async (_, _) =>
+        {
+            var app = await _appService.GetAppByIdAsync(id);
+            if (app is null)
+                return new ObjectResult(new ErrorRecord("Die Applikation wurde nicht gefunden.", 1101))
+                { StatusCode = StatusCodes.Status404NotFound };
+
+            var groupIds = await _appService.GetAssignmentsAsync(id);
+            _logger.LogInformation("{Count} Zuweisung(en) für App {AppId} geladen.", groupIds.Count, id);
+            return new OkObjectResult(groupIds);
+        });
 
     [Function("AppManagement_GetApps")]
     public async Task<IActionResult> GetApps([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "appmanagement/apps")] HttpRequest req) =>

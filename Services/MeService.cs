@@ -17,8 +17,10 @@ public class MeService(ChurchToolsClientFactory clientFactory, ILogger<MeService
     public async Task<MeDto> GetMeDtoAsync(ClaimsPrincipal user, string userId)
     {
         // Anzeigename aus dem name-Claim lesen
-        var firstName = user.FindFirstValue(JwtRegisteredClaimNames.GivenName) ?? userId;
-        var lastName = user.FindFirstValue(JwtRegisteredClaimNames.FamilyName) ?? "";
+        var firstName = user.FindFirstValue("given_name") ?? userId;
+        var lastName = user.FindFirstValue("family_name") ?? "";
+        _logger.LogInformation("User Claims: UserId={UserId}, FirstName={FirstName}, LastName={LastName}", userId, firstName, lastName);
+        _logger.LogInformation("User Claims: {Claims}", string.Join(", ", user.Claims.Select(c => $"{c.Type}={c.Value}")));
         var displayName = $"{firstName} {lastName}".Trim();
         var ctClient = _clientFactory.Create();
         var whoamiResponse = await ctClient.Whoami.GetAsWhoamiGetResponseAsync();
