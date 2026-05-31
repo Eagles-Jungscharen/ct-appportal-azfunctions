@@ -79,13 +79,13 @@ public class JwtValidationMiddleware : IFunctionsWorkerMiddleware
         {
             _oidcConfigManager.RequestRefresh(); // Bei Validierungsfehlern könnte es an veralteten Keys liegen — OIDC-Konfiguration aktualisieren
             validationParameters = await BuildValidationParametersAsync();
-            _logger.LogDebug("Token-Validierung fehlgeschlagen, versuche mit aktualisierten OIDC-Konfiguration. Fehler: {Reason}", result.Exception?.Message);
+            _logger.LogInformation("Token-Validierung fehlgeschlagen, versuche mit aktualisierten OIDC-Konfiguration. Fehler: {Reason}", result.Exception?.Message);
             result = await handler.ValidateTokenAsync(token, validationParameters);    
         }
 
         if (!result.IsValid)
         {
-            _logger.LogDebug("Token-Validierung fehlgeschlagen: {Reason}", result.Exception?.Message);
+            _logger.LogInformation("Token-Validierung fehlgeschlagen: {Reason}", result.Exception?.Message);
             await WriteUnauthorizedAsync(context, requestData, "Token ungültig oder abgelaufen.");
             return;
         }

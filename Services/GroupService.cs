@@ -16,7 +16,7 @@ public class GroupService(ChurchToolsClientFactory clientFactory, ILogger<GroupS
         // Gruppen aus ChurchTools laden; DomainIdentifier = "GROUP_<id>" (ChurchTools-Konvention)
         var groups = response?.Data
             ?.Where(g => g.Id.HasValue)
-            .Select(g => new GroupDto($"GROUP_{g.Id}", g.Name ?? string.Empty))
+            .Select(g => new GroupDto($"{g.Id}", g.Name ?? string.Empty))
             .ToList() ?? [];
         _logger.LogInformation("{Count} Gruppe(n) aus ChurchTools geladen.", groups.Count);
         return groups;
