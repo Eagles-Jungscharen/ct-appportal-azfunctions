@@ -65,7 +65,6 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
             Description = request.Description,
             Url = request.Url,
             RedirectUris = request.RedirectUris,
-            Roles = request.Roles
         };
         await _appTable.InsertOrReplaceAsync(rowKey: entity.Id, partitionKey: AppPartitionKey, entity);
         return ToDto(entity);
@@ -82,7 +81,6 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
         entity.Description = request.Description;
         entity.Url = request.Url;
         entity.RedirectUris = request.RedirectUris;
-        entity.Roles = request.Roles;
 
         await _appTable.InsertOrReplaceAsync(rowKey: entity.Id, partitionKey: AppPartitionKey, entity);
         return ToDto(entity);
@@ -145,5 +143,5 @@ public class AppService([FromKeyedServices("PortalStorage")] ExtendedAzureTableC
     }
 
     private static AppDto ToDto(AppEntity app) =>
-        new(app.Id, app.Name, app.Description, app.Url, app.IconContentType != null, app.RedirectUris, app.Roles);
+        new(app.Id, app.Name, app.Description, app.Url, app.IconContentType != null, app.RedirectUris);
 }

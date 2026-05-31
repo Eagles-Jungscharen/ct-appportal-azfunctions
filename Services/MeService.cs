@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using EaglesJungscharen.Azure.AppPortal.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
@@ -16,20 +17,9 @@ public class MeService(ChurchToolsClientFactory clientFactory, ILogger<MeService
     public async Task<MeDto> GetMeDtoAsync(ClaimsPrincipal user, string userId)
     {
         // Anzeigename aus dem name-Claim lesen
-        var firstName = user.FindFirstValue("firstname") ?? userId;
-        var lastName = user.FindFirstValue("lastname") ?? "";
+        var firstName = user.FindFirstValue(JwtRegisteredClaimNames.GivenName) ?? userId;
+        var lastName = user.FindFirstValue(JwtRegisteredClaimNames.FamilyName) ?? "";
         var displayName = $"{firstName} {lastName}".Trim();
-
-        // TODO: CHURCHTOOL_USERINFO_URL konfigurieren
-        // Sobald der Endpoint bekannt ist, hier den HTTP-Call implementieren:
-        //
-        //   var client = _clientFactory.CreateClient("ChurchtoolIdp");
-        //   var response = await client.GetAsync($"CHURCHTOOL_USERINFO_URL/{userId}");
-        //   var userInfo = await response.Content.ReadFromJsonAsync<ChurchtoolUserInfoDto>();
-        //   isAdmin = userInfo?.IsAdmin ?? false;
-        //   groups = userInfo?.Groups ?? [];
-        //
-        // Vorerst Platzhalterwerte verwenden:
         var ctClient = _clientFactory.Create();
         var whoamiResponse = await ctClient.Whoami.GetAsWhoamiGetResponseAsync();
         var whoami = whoamiResponse?.Data;
