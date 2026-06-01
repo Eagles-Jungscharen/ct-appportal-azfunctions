@@ -130,7 +130,7 @@ public class AppManagementFunction
 
             await _appService.AssignGroupsAsync(id, request.GroupIds);
             _logger.LogInformation("{Count} Gruppe(n) für App {AppId} gesetzt.", request.GroupIds.Count, id);
-            return new OkResult();
+            return new NoContentResult();
         });
 
     [Function("AppManagement_UploadIcon")]
