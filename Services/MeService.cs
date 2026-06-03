@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
-using EaglesJungscharen.Azure.AppPortal.Middleware;
+using EaglesJungscharen.Azure.ChurchToolIDPServices.Services;
 using EaglesJungscharen.Azure.AppPortal.Models;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using Microsoft.Extensions.Logging;

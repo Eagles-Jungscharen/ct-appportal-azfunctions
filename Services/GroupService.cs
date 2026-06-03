@@ -1,4 +1,4 @@
-using EaglesJungscharen.Azure.AppPortal.Middleware;
+using EaglesJungscharen.Azure.ChurchToolIDPServices.Services;
 using EaglesJungscharen.Azure.AppPortal.Models.Dtos;
 using Microsoft.Extensions.Logging;
 

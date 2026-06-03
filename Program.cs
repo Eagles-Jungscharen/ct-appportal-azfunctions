@@ -1,6 +1,6 @@
 using Azure.Storage.Blobs;
-using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Extensions;
-using EaglesJungscharen.Azure.AppPortal.ChurchToolIDPServices.Middleware;
+using EaglesJungscharen.Azure.ChurchToolIDPServices.Extensions;
+using EaglesJungscharen.Azure.ChurchToolIDPServices.Middleware;
 using EaglesJungscharen.Azure.AppPortal.Models;
 using EaglesJungscharen.Azure.AppPortal.Models.Entities;
 using EaglesJungscharen.Azure.AppPortal.Services;
